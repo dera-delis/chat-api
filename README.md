@@ -9,6 +9,8 @@
 
 A production-ready real-time chat API built with FastAPI, WebSockets, Redis, and PostgreSQL. This backend supports authenticated users, multiple chat rooms, real-time messaging, and persistent chat history.
 
+> ⚠️ **Status / Scope:** This project is designed as a backend-only service intended for integration with web or mobile clients.
+
 ## 🏗️ Architecture
 
 ### Tech Stack
@@ -454,7 +456,7 @@ The `docker-compose.yml` includes:
    - Password: `chat_password`
 
 2. **Redis** (port 6379)
-   - Used for pub/sub and presence tracking
+   - Pub/Sub, presence tracking, room broadcasts
 
 3. **FastAPI Application** (port 8000)
    - Auto-reloads on code changes
