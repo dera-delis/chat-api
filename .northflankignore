@@ -1,0 +1,48 @@
+# Northflank ignore file
+# Files and directories to exclude from build context
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional - remove if you want to include)
+# *.md
+# !README.md
+
+# Scripts (optional)
+scripts/
+
+# Docker
+docker-compose.yml
+.dockerignore
+
