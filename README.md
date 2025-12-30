@@ -521,6 +521,15 @@ This project is open source and available under the MIT License.
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 🎯 Why This Project?
+
+This project demonstrates:
+- **Real-time system design** - WebSocket-based bidirectional communication
+- **WebSocket authentication** - Secure token-based authentication for real-time connections
+- **Redis-based horizontal scaling** - Pub/Sub architecture for multi-instance deployments
+- **Clean FastAPI architecture** - Modular, maintainable code structure
+- **Production-ready backend practices** - Docker, migrations, testing, and comprehensive documentation
+
 ---
 
 **Built with ❤️ using FastAPI, WebSockets, Redis, and PostgreSQL**
