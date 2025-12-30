@@ -1,5 +1,12 @@
 # Real-Time Chat API
 
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)
+![WebSockets](https://img.shields.io/badge/WebSockets-Real--Time-blue)
+![Redis](https://img.shields.io/badge/Redis-Pub/Sub-red)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
+![Status](https://img.shields.io/badge/Status-Portfolio_Project-green)
+
 A production-ready real-time chat API built with FastAPI, WebSockets, Redis, and PostgreSQL. This backend supports authenticated users, multiple chat rooms, real-time messaging, and persistent chat history.
 
 ## 🏗️ Architecture
@@ -305,6 +312,8 @@ Connect to a chat room using WebSocket:
 ```
 ws://localhost:8000/ws/chat/{room_id}?token={JWT_TOKEN}
 ```
+
+> **Note:** WebSocket connections require a valid JWT token passed as a query parameter. Unauthorized connections are rejected during handshake.
 
 ### Message Format
 
