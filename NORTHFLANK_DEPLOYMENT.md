@@ -104,7 +104,7 @@ Click **"Environment Variables"** and add:
 
 ```
 DATABASE_URL = [Will be auto-populated from PostgreSQL service]
-REDIS_URL = [Will be auto-populated from Redis service]
+REDIS_URL = [See instructions below]
 SECRET_KEY = [Generate a random 32+ character string]
 ALGORITHM = HS256
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -112,11 +112,14 @@ ENVIRONMENT = production
 PORT = 8000
 ```
 
-**To link services:**
+**For DATABASE_URL:**
 1. Under **"Linked Services"**, select:
    - `postgres` (PostgreSQL)
-   - `redis` (Redis)
-2. Northflank automatically provides connection URLs
+2. Northflank automatically provides the connection URL
+
+**For REDIS_URL:**
+- **If using Northflank Redis:** Under **"Linked Services"**, also select `redis` - Northflank will auto-populate the URL
+- **If using Upstash Redis:** Manually paste the Redis URL you copied from Upstash (from Step 4, Option B)
 
 **To generate SECRET_KEY:**
 - Use: https://randomkeygen.com/
@@ -135,8 +138,9 @@ PORT = 8000
 2. Click **"Settings"** > **"Dependencies"**
 3. Ensure:
    - `postgres` is listed and linked
-   - `redis` is listed and linked
-4. Northflank will wait for these services before starting your app
+   - `redis` is listed and linked (only if using Northflank Redis)
+4. Northflank will wait for linked services before starting your app
+5. **Note:** If using Upstash Redis, you don't need to link it as a dependency - just use the URL in environment variables
 
 ### Step 7: Run Database Migrations
 
@@ -298,10 +302,17 @@ git push origin main
 
 ### Redis Connection Errors
 
-1. Verify Redis service is running
-2. Check service is linked in dependencies
-3. Verify `REDIS_URL` environment variable exists
-4. Check the URL format in logs
+1. **If using Northflank Redis:**
+   - Verify Redis service is running
+   - Check service is linked in dependencies
+   - Verify `REDIS_URL` environment variable exists
+
+2. **If using Upstash Redis:**
+   - Verify `REDIS_URL` is correctly set in environment variables
+   - Check the URL format: `redis://` or `rediss://` (for TLS)
+   - Ensure Upstash database is active (check Upstash dashboard)
+   - Verify you haven't exceeded free tier limits (10K commands/day)
+   - Check logs for connection errors
 
 ### Migration Issues
 
@@ -360,7 +371,7 @@ services:
         value: "8000"
     links:
       - postgres
-      - redis
+      # - redis  # Uncomment if using Northflank Redis, or use external Redis URL in environment
 ```
 
 ### Dockerfile for Northflank
@@ -376,9 +387,9 @@ CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 - [ ] Northflank account created
 - [ ] Project created
 - [ ] PostgreSQL service created and running
-- [ ] Redis service created and running
+- [ ] Redis service set up (Northflank or Upstash)
 - [ ] Application service created
-- [ ] Services linked (postgres, redis)
+- [ ] Services linked (postgres, and redis if using Northflank Redis)
 - [ ] Environment variables configured
 - [ ] Service settings configured
 - [ ] Database migrations run
