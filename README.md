@@ -15,9 +15,8 @@ A production-ready real-time chat API built with FastAPI, WebSockets, Redis, and
 
 **API Base URL**: https://p01--chat-api--jlcf9gxkjgjx.code.run/
 
-- **API Documentation (Swagger)**: https://p01--chat-api--jlcf9gxkjgjx.code.run/docs
-- **Alternative Docs (ReDoc)**: https://p01--chat-api--jlcf9gxkjgjx.code.run/redoc
-- **Health Check**: https://p01--chat-api--jlcf9gxkjgjx.code.run/health
+[![API Documentation](https://img.shields.io/badge/API_Documentation-Swagger-2ea44f?style=for-the-badge)](https://p01--chat-api--jlcf9gxkjgjx.code.run/docs)
+[![Health Check](https://img.shields.io/badge/Health_Check-Status-2ea44f?style=for-the-badge)](https://p01--chat-api--jlcf9gxkjgjx.code.run/health)
 
 ## 🏗️ Architecture
 
