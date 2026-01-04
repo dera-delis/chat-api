@@ -127,8 +127,9 @@ PORT = 8000
 
 #### Build & Deploy Settings:
 - **Build command**: (leave empty, uses Dockerfile)
-- **Start command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+- **Start command**: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
 - **Dockerfile path**: `Dockerfile`
+- **Working directory**: `/app` (should be set automatically by Dockerfile)
 
 4. Click **"Create"**
 
