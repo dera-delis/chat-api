@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routers import auth, rooms, messages, presence
 from app.websocket import chat
 from app.config import settings
+import traceback
 
 app = FastAPI(
     title="Real-Time Chat API",
@@ -58,4 +60,20 @@ async def root():
 async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to catch unhandled errors"""
+    # Log the full traceback for debugging
+    error_traceback = traceback.format_exc()
+    print(f"Unhandled exception: {error_traceback}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": f"Internal server error: {str(exc)}",
+            "type": type(exc).__name__
+        }
+    )
 
