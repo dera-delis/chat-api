@@ -6,7 +6,7 @@ Deploy your Chat API to Northflank - a modern platform that makes deployment sim
 
 - **Simple UI** - Deploy from browser, no CLI needed
 - **Built-in PostgreSQL** - One-click database setup
-- **Built-in Redis** - Easy to add
+- **Built-in Redis** - Easy to add (or use external like Upstash)
 - **GitHub Integration** - Auto-deploy on push
 - **Free tier available** - Great for getting started
 - **WebSocket support** - Perfect for real-time apps
@@ -43,7 +43,11 @@ Deploy your Chat API to Northflank - a modern platform that makes deployment sim
 
 Northflank automatically creates the database and provides connection details.
 
-### Step 4: Create Redis Service
+### Step 4: Set Up Redis
+
+You have two options for Redis:
+
+#### Option A: Use Northflank Redis (If Available)
 
 1. Click **"+ Add Service"** again
 2. Select **"Database"** > **"Redis"**
@@ -52,6 +56,30 @@ Northflank automatically creates the database and provides connection details.
    - **Version**: Redis 7
    - **Plan**: Choose based on needs
 4. Click **"Create"**
+
+**Note:** If you've reached your addon limit, use Option B below.
+
+#### Option B: Use Upstash Redis (Recommended - Free Tier Available)
+
+1. Go to [Upstash.com](https://upstash.com)
+2. Sign up for a free account (or log in)
+3. Click **"Create Database"**
+4. Configure:
+   - **Name**: `chat-api-redis`
+   - **Type**: Regional (or Global for better performance)
+   - **Region**: Choose closest to your Northflank region
+   - **TLS**: Enable (recommended)
+5. Click **"Create"**
+6. Once created, go to **"Details"** tab
+7. Copy the **"REST URL"** or **"Redis URL"**
+   - Format: `redis://default:PASSWORD@HOST:PORT`
+   - Or TLS: `rediss://default:PASSWORD@HOST:PORT`
+8. Save this URL - you'll use it in Step 5
+
+**Upstash Free Tier:**
+- 10,000 commands per day
+- Perfect for development and small projects
+- No credit card required
 
 ### Step 5: Create Application Service
 
