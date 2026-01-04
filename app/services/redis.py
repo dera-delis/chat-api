@@ -6,7 +6,14 @@ from app.config import settings
 
 class RedisService:
     def __init__(self):
-        self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self._redis_client = None
+    
+    @property
+    def redis_client(self):
+        """Lazy initialization of Redis client"""
+        if self._redis_client is None:
+            self._redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        return self._redis_client
     
     def publish_message(self, room_id: int, message: dict):
         """Publish message to Redis channel for a room"""

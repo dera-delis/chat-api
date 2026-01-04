@@ -6,9 +6,16 @@ from app.services.redis import redis_service
 
 class PresenceService:
     def __init__(self):
-        self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self._redis_client = None
         self.presence_key_prefix = "presence:room:"
         self.user_key_prefix = "user:room:"
+    
+    @property
+    def redis_client(self):
+        """Lazy initialization of Redis client"""
+        if self._redis_client is None:
+            self._redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        return self._redis_client
     
     def set_user_online(self, room_id: int, user_id: int, username: str):
         """Mark user as online in a room"""
