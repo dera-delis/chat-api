@@ -413,12 +413,14 @@ Your Chat API is now deployed on Northflank!
 
 ## 💡 Pro Tips
 
-1. **Use service linking** - Northflank handles connection strings automatically
-2. **Monitor logs** - Check logs regularly for issues
-3. **Set up alerts** - Get notified of problems
-4. **Use preview deployments** - Test changes before production
-5. **Scale easily** - Adjust resources in service settings
-6. **Use health checks** - Northflank can monitor your service health
+1. **Use service linking** - Northflank handles connection strings automatically for linked services
+2. **Use Upstash for Redis** - Free tier is perfect for development, no addon limits
+3. **Monitor logs** - Check logs regularly for issues
+4. **Set up alerts** - Get notified of problems
+5. **Use preview deployments** - Test changes before production
+6. **Scale easily** - Adjust resources in service settings
+7. **Use health checks** - Northflank can monitor your service health
+8. **External services work great** - Don't be limited by addon restrictions - use external services when needed
 
 ---
 
