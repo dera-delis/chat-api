@@ -11,6 +11,14 @@ A production-ready real-time chat API built with FastAPI, WebSockets, Redis, and
 
 > ⚠️ **Status / Scope:** This project is designed as a backend-only service intended for integration with web or mobile clients.
 
+## 🌐 Live Demo
+
+**API Base URL**: https://p01--chat-api--jlcf9gxkjgjx.code.run/
+
+- **API Documentation (Swagger)**: https://p01--chat-api--jlcf9gxkjgjx.code.run/docs
+- **Alternative Docs (ReDoc)**: https://p01--chat-api--jlcf9gxkjgjx.code.run/redoc
+- **Health Check**: https://p01--chat-api--jlcf9gxkjgjx.code.run/health
+
 ## 🏗️ Architecture
 
 ### Tech Stack
@@ -311,8 +319,14 @@ Get list of online users in a room.
 
 Connect to a chat room using WebSocket:
 
+**Local Development:**
 ```
 ws://localhost:8000/ws/chat/{room_id}?token={JWT_TOKEN}
+```
+
+**Production:**
+```
+wss://p01--chat-api--jlcf9gxkjgjx.code.run/ws/chat/{room_id}?token={JWT_TOKEN}
 ```
 
 > **Note:** WebSocket connections require a valid JWT token passed as a query parameter. Unauthorized connections are rejected during handshake.
@@ -354,7 +368,9 @@ ws://localhost:8000/ws/chat/{room_id}?token={JWT_TOKEN}
 ```javascript
 const token = "your-jwt-token";
 const roomId = 1;
-const ws = new WebSocket(`ws://localhost:8000/ws/chat/${roomId}?token=${token}`);
+// For local development: ws://localhost:8000/ws/chat/${roomId}?token=${token}
+// For production: wss://p01--chat-api--jlcf9gxkjgjx.code.run/ws/chat/${roomId}?token=${token}
+const ws = new WebSocket(`wss://p01--chat-api--jlcf9gxkjgjx.code.run/ws/chat/${roomId}?token=${token}`);
 
 ws.onopen = () => {
   console.log("Connected to chat room");
@@ -400,7 +416,9 @@ import json
 async def chat_client():
     token = "your-jwt-token"
     room_id = 1
-    uri = f"ws://localhost:8000/ws/chat/{room_id}?token={token}"
+    # For local development: f"ws://localhost:8000/ws/chat/{room_id}?token={token}"
+    # For production: f"wss://p01--chat-api--jlcf9gxkjgjx.code.run/ws/chat/{room_id}?token={token}"
+    uri = f"wss://p01--chat-api--jlcf9gxkjgjx.code.run/ws/chat/{room_id}?token={token}"
     
     async with websockets.connect(uri) as websocket:
         print("Connected to chat room")
