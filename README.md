@@ -172,7 +172,6 @@ chat-api/
 5. **Access the API**:
    - API: http://localhost:8000
    - API Documentation (Swagger): http://localhost:8000/docs
-   - Alternative Docs (ReDoc): http://localhost:8000/redoc
 
 ### Local Development Setup
 
