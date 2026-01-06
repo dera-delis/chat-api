@@ -31,9 +31,19 @@ def get_user_by_username(db: Session, username: str) -> User:
     return db.query(User).filter(User.username == username).first()
 
 
-def authenticate_user(db: Session, username: str, password: str) -> User:
-    """Authenticate user and return User object if valid"""
-    user = get_user_by_username(db, username)
+def get_user_by_email(db: Session, email: str) -> User:
+    """Get user by email"""
+    return db.query(User).filter(User.email == email).first()
+
+
+def authenticate_user(db: Session, username_or_email: str, password: str) -> User:
+    """Authenticate user by username or email and return User object if valid"""
+    # Try username first
+    user = get_user_by_username(db, username_or_email)
+    # If not found, try email
+    if not user:
+        user = get_user_by_email(db, username_or_email)
+    
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
@@ -112,7 +122,8 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 async def login(request: Request, db: Session = Depends(get_db)):
     """Login and get access token (JSON format)
     
-    Accepts JSON: {"username": "...", "password": "..."}
+    Accepts JSON with either username or email:
+    {"username": "...", "password": "..."} OR {"email": "...", "password": "..."}
     """
     try:
         # Get content type
@@ -128,6 +139,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
                 form = await request.form()
                 body = {
                     "username": form.get("username"),
+                    "email": form.get("email"),
                     "password": form.get("password")
                 }
         except Exception as parse_error:
@@ -136,32 +148,45 @@ async def login(request: Request, db: Session = Depends(get_db)):
                 detail={
                     "message": "Failed to parse request body",
                     "error": str(parse_error),
-                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"}",
+                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
                     "content_type_received": content_type or "not set"
                 }
             )
         
-        # Validate required fields
+        # Validate required fields - accept either username or email
         username = body.get("username") if body else None
+        email = body.get("email") if body else None
         password = body.get("password") if body else None
         
-        if not username or not password:
+        # Must have either username or email, and password
+        if not password:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={
-                    "message": "Missing required fields",
-                    "required": ["username", "password"],
-                    "received": list(body.keys()) if body else [],
-                    "username_provided": username is not None,
-                    "password_provided": password is not None
+                    "message": "Missing required field: password",
+                    "required": ["password", "username OR email"],
+                    "received": list(body.keys()) if body else []
                 }
             )
         
-        user = authenticate_user(db, username, password)
+        if not username and not email:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "Missing required field: username or email",
+                    "required": ["password", "username OR email"],
+                    "received": list(body.keys()) if body else []
+                }
+            )
+        
+        # Use username if provided, otherwise use email
+        username_or_email = username if username else email
+        
+        user = authenticate_user(db, username_or_email, password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Incorrect username/email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
