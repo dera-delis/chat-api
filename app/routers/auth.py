@@ -115,19 +115,45 @@ async def login(request: Request, db: Session = Depends(get_db)):
     Accepts JSON: {"username": "...", "password": "..."}
     """
     try:
+        # Get content type
+        content_type = request.headers.get("content-type", "").lower()
+        
         # Parse request body
-        body = await request.json()
-        username = body.get("username")
-        password = body.get("password")
+        try:
+            if "application/json" in content_type or not content_type:
+                # Try JSON first
+                body = await request.json()
+            else:
+                # Try form data as fallback
+                form = await request.form()
+                body = {
+                    "username": form.get("username"),
+                    "password": form.get("password")
+                }
+        except Exception as parse_error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "Failed to parse request body",
+                    "error": str(parse_error),
+                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"}",
+                    "content_type_received": content_type or "not set"
+                }
+            )
         
         # Validate required fields
+        username = body.get("username") if body else None
+        password = body.get("password") if body else None
+        
         if not username or not password:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={
                     "message": "Missing required fields",
                     "required": ["username", "password"],
-                    "received": list(body.keys()) if body else []
+                    "received": list(body.keys()) if body else [],
+                    "username_provided": username is not None,
+                    "password_provided": password is not None
                 }
             )
         
@@ -147,15 +173,14 @@ async def login(request: Request, db: Session = Depends(get_db)):
         return {"access_token": access_token, "token_type": "bearer"}
     except HTTPException:
         raise
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid JSON format. Expected: {\"username\": \"...\", \"password\": \"...\"}"
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Request parsing error: {str(e)}"
+            detail={
+                "message": "Request processing error",
+                "error": str(e),
+                "type": type(e).__name__
+            }
         )
 
 
