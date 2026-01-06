@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.routers import auth, rooms, messages, presence
 from app.websocket import chat
 from app.config import settings
@@ -60,6 +61,20 @@ async def root():
 async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with detailed messages"""
+    errors = exc.errors()
+    print(f"Validation error: {errors}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": errors,
+            "message": "Validation error. Please check your request format."
+        }
+    )
 
 
 @app.exception_handler(Exception)
