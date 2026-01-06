@@ -127,7 +127,7 @@ PORT = 8000
 
 #### Build & Deploy Settings:
 - **Build command**: (leave empty, uses Dockerfile)
-- **Start command**: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
+- **Start command**: (leave empty - Dockerfile ENTRYPOINT handles migrations and startup automatically)
 - **Dockerfile path**: `Dockerfile`
 - **Working directory**: `/app` (should be set automatically by Dockerfile)
 
@@ -143,9 +143,11 @@ PORT = 8000
 4. Northflank will wait for linked services before starting your app
 5. **Note:** If using Upstash Redis, you don't need to link it as a dependency - just use the URL in environment variables
 
-### Step 7: Run Database Migrations
+### Step 7: Database Migrations
 
-**Option A: Via Northflank Terminal**
+**✅ Automatic Migrations:** The Dockerfile now automatically runs database migrations on startup, so you don't need to run them manually. The entrypoint script runs `alembic upgrade head` before starting the application.
+
+**Option A: Manual Migration (if needed)**
 
 1. Go to your `chat-api` service
 2. Click **"Terminal"** tab

@@ -15,10 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Make entrypoint script executable
+RUN chmod +x scripts/entrypoint.sh
+
 # Expose port (Cloud Run uses PORT env var, defaults to 8000)
 EXPOSE 8000
 
-# Run the application
-# Use PORT environment variable if set (for Cloud Run), otherwise default to 8000
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Run migrations and start the application
+ENTRYPOINT ["scripts/entrypoint.sh"]
 
