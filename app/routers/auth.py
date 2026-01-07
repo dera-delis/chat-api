@@ -119,131 +119,29 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(request: Request, db: Session = Depends(get_db)):
+async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     """Login and get access token (JSON format)
     
     Accepts JSON with either username or email:
     {"username": "...", "password": "..."} OR {"email": "...", "password": "..."}
     """
-    try:
-        # Get content type
-        content_type = request.headers.get("content-type", "").lower()
-        
-        # Check if body is empty before parsing
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "message": "Request body is empty",
-                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
-                    "example": {"email": "user@example.com", "password": "yourpassword"}
-                }
-            )
-        
-        # Parse request body
-        try:
-            if "application/json" in content_type or not content_type:
-                # Try JSON first
-                try:
-                    body = await request.json()
-                except json.JSONDecodeError as json_error:
-                    # Provide clearer error for JSON decode issues
-                    error_msg = str(json_error)
-                    if "Expecting value" in error_msg or "char 0" in error_msg:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={
-                                "message": "Request body is empty or invalid JSON",
-                                "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
-                                "example": {"email": "user@example.com", "password": "yourpassword"}
-                            }
-                        )
-                    else:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail={
-                                "message": "Invalid JSON format in request body",
-                                "error": error_msg,
-                                "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
-                                "example": {"email": "user@example.com", "password": "yourpassword"}
-                            }
-                        )
-            else:
-                # Try form data as fallback
-                form = await request.form()
-                body = {
-                    "username": form.get("username"),
-                    "email": form.get("email"),
-                    "password": form.get("password")
-                }
-        except HTTPException:
-            raise
-        except Exception as parse_error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "message": "Failed to parse request body",
-                    "error": str(parse_error),
-                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
-                    "content_type_received": content_type or "not set"
-                }
-            )
-        
-        # Validate required fields - accept either username or email
-        username = body.get("username") if body else None
-        email = body.get("email") if body else None
-        password = body.get("password") if body else None
-        
-        # Must have either username or email, and password
-        if not password:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "message": "Missing required field: password",
-                    "required": ["password", "username OR email"],
-                    "received": list(body.keys()) if body else []
-                }
-            )
-        
-        if not username and not email:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "message": "Missing required field: username or email",
-                    "required": ["password", "username OR email"],
-                    "received": list(body.keys()) if body else []
-                }
-            )
-        
-        # Use username if provided, otherwise use email
-        username_or_email = username if username else email
-        
-        user = authenticate_user(db, username_or_email, password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username/email or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
-        
-        return {"access_token": access_token, "token_type": "bearer"}
-    except HTTPException:
-        raise
-    except Exception as e:
+    # Use username if provided, otherwise use email
+    username_or_email = login_data.username if login_data.username else login_data.email
+    
+    user = authenticate_user(db, username_or_email, login_data.password)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "message": "Request processing error",
-                "error": str(e),
-                "type": type(e).__name__
-            }
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username/email or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/token", response_model=Token)
