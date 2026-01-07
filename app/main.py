@@ -28,9 +28,10 @@ app.add_middleware(
         # Add your production frontend URL here when deployed
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Include routers
@@ -92,6 +93,34 @@ async def websocket_endpoint(websocket, room_id: int):
     finally:
         db.close()
         print(f"[WebSocket] Connection closed for room {room_id}")
+
+
+@app.options("/{full_path:path}")
+async def options_handler(request: Request, full_path: str):
+    """Handle OPTIONS requests for CORS preflight"""
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ]
+    
+    # Check if origin is allowed
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "3600",
+            }
+        )
+    else:
+        return JSONResponse(content={}, status_code=403)
 
 
 @app.get("/")
