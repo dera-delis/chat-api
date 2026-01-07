@@ -129,11 +129,46 @@ async def login(request: Request, db: Session = Depends(get_db)):
         # Get content type
         content_type = request.headers.get("content-type", "").lower()
         
+        # Check if body is empty before parsing
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": "Request body is empty",
+                    "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
+                    "example": {"email": "user@example.com", "password": "yourpassword"}
+                }
+            )
+        
         # Parse request body
         try:
             if "application/json" in content_type or not content_type:
                 # Try JSON first
-                body = await request.json()
+                try:
+                    body = await request.json()
+                except json.JSONDecodeError as json_error:
+                    # Provide clearer error for JSON decode issues
+                    error_msg = str(json_error)
+                    if "Expecting value" in error_msg or "char 0" in error_msg:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "message": "Request body is empty or invalid JSON",
+                                "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
+                                "example": {"email": "user@example.com", "password": "yourpassword"}
+                            }
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={
+                                "message": "Invalid JSON format in request body",
+                                "error": error_msg,
+                                "expected": "JSON format: {\"username\": \"...\", \"password\": \"...\"} OR {\"email\": \"...\", \"password\": \"...\"}",
+                                "example": {"email": "user@example.com", "password": "yourpassword"}
+                            }
+                        )
             else:
                 # Try form data as fallback
                 form = await request.form()
@@ -142,6 +177,8 @@ async def login(request: Request, db: Session = Depends(get_db)):
                     "email": form.get("email"),
                     "password": form.get("password")
                 }
+        except HTTPException:
+            raise
         except Exception as parse_error:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
