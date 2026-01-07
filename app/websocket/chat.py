@@ -120,44 +120,66 @@ async def websocket_chat_endpoint(
     db: Session
 ):
     """WebSocket endpoint for real-time chat"""
+    print(f"[WebSocket Chat] Processing connection for room {room_id}")
+    
     # Authenticate user
     try:
+        print(f"[WebSocket Chat] Authenticating user with token...")
         user = await get_current_user_websocket(token, db)
+        print(f"[WebSocket Chat] User authenticated: {user.username} (ID: {user.id})")
     except HTTPException as e:
-        await websocket.send_json({
-            "type": "error",
-            "message": "Authentication failed",
-            "detail": str(e.detail)
-        })
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        print(f"[WebSocket Chat] Authentication failed: {e.detail}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Authentication failed",
+                "detail": str(e.detail)
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception as send_error:
+            print(f"[WebSocket Chat] Failed to send auth error: {send_error}")
         return
     
     # Check if room exists
+    print(f"[WebSocket Chat] Checking if room {room_id} exists...")
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
-        await websocket.send_json({
-            "type": "error",
-            "message": "Room not found",
-            "room_id": room_id
-        })
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Room not found")
+        print(f"[WebSocket Chat] Room {room_id} not found")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Room not found",
+                "room_id": room_id
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Room not found")
+        except Exception as send_error:
+            print(f"[WebSocket Chat] Failed to send room error: {send_error}")
         return
     
+    print(f"[WebSocket Chat] Room found: {room.name}")
+    
     # Check if user is a member
+    print(f"[WebSocket Chat] Checking membership for user {user.id} in room {room_id}...")
     membership = db.query(RoomMember).filter(
         RoomMember.room_id == room_id,
         RoomMember.user_id == user.id
     ).first()
     
     if not membership:
-        await websocket.send_json({
-            "type": "error",
-            "message": "Not a member of this room",
-            "room_id": room_id,
-            "hint": "Join the room first using POST /rooms/{room_id}/join"
-        })
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Not a member of this room")
+        print(f"[WebSocket Chat] User {user.id} is not a member of room {room_id}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Not a member of this room",
+                "room_id": room_id,
+                "hint": "Join the room first using POST /rooms/{room_id}/join"
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Not a member of this room")
+        except Exception as send_error:
+            print(f"[WebSocket Chat] Failed to send membership error: {send_error}")
         return
+    
+    print(f"[WebSocket Chat] User {user.id} is a member. Connecting to room...")
     
     # Connect to room
     await manager.connect(websocket, room_id, user.id, user.username)

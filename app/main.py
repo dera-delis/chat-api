@@ -33,27 +33,54 @@ app.include_router(presence.router)
 async def websocket_endpoint(websocket, room_id: int):
     """WebSocket endpoint for real-time chat"""
     from app.database import SessionLocal
+    import traceback
+    
+    print(f"[WebSocket] Connection attempt to room {room_id}")
     
     # Accept WebSocket connection first (required before sending messages)
-    await websocket.accept()
+    try:
+        await websocket.accept()
+        print(f"[WebSocket] Connection accepted for room {room_id}")
+    except Exception as e:
+        print(f"[WebSocket] Failed to accept connection: {e}")
+        print(f"[WebSocket] Traceback: {traceback.format_exc()}")
+        return
     
     # Extract token from query parameters
     token = websocket.query_params.get("token")
     if not token:
-        await websocket.close(code=1008, reason="Missing token")
+        print(f"[WebSocket] Missing token for room {room_id}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Missing authentication token"
+            })
+            await websocket.close(code=1008, reason="Missing token")
+        except:
+            pass
         return
+    
+    print(f"[WebSocket] Token received for room {room_id}")
     
     db = SessionLocal()
     try:
         await chat.websocket_chat_endpoint(websocket, room_id, token, db)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        error_traceback = traceback.format_exc()
+        print(f"[WebSocket] Error in chat endpoint: {e}")
+        print(f"[WebSocket] Traceback: {error_traceback}")
         try:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Server error",
+                "detail": str(e)
+            })
             await websocket.close(code=1011, reason=f"Server error: {str(e)}")
-        except:
-            pass
+        except Exception as close_error:
+            print(f"[WebSocket] Failed to send error message: {close_error}")
     finally:
         db.close()
+        print(f"[WebSocket] Connection closed for room {room_id}")
 
 
 @app.get("/")
