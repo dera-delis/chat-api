@@ -56,6 +56,36 @@ def get_rooms(
     return rooms
 
 
+@router.get("/{room_id}", response_model=RoomResponse)
+def get_room(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific room by ID"""
+    # Check if room exists
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found"
+        )
+    
+    # Check if user is a member
+    membership = db.query(RoomMember).filter(
+        RoomMember.room_id == room_id,
+        RoomMember.user_id == current_user.id
+    ).first()
+    
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a member of this room"
+        )
+    
+    return room
+
+
 @router.post("/{room_id}/join", response_model=RoomMemberResponse, status_code=status.HTTP_201_CREATED)
 def join_room(
     room_id: int,

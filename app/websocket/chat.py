@@ -21,9 +21,7 @@ class ConnectionManager:
         self.connection_info: Dict[WebSocket, tuple] = {}
     
     async def connect(self, websocket: WebSocket, room_id: int, user_id: int, username: str):
-        """Connect a user to a room"""
-        await websocket.accept()
-        
+        """Connect a user to a room (WebSocket should already be accepted)"""
         if room_id not in self.active_connections:
             self.active_connections[room_id] = set()
         
@@ -125,13 +123,23 @@ async def websocket_chat_endpoint(
     # Authenticate user
     try:
         user = await get_current_user_websocket(token, db)
-    except HTTPException:
+    except HTTPException as e:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Authentication failed",
+            "detail": str(e.detail)
+        })
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     
     # Check if room exists
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Room not found",
+            "room_id": room_id
+        })
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Room not found")
         return
     
@@ -142,6 +150,12 @@ async def websocket_chat_endpoint(
     ).first()
     
     if not membership:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Not a member of this room",
+            "room_id": room_id,
+            "hint": "Join the room first using POST /rooms/{room_id}/join"
+        })
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Not a member of this room")
         return
     

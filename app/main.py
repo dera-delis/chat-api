@@ -34,6 +34,9 @@ async def websocket_endpoint(websocket, room_id: int):
     """WebSocket endpoint for real-time chat"""
     from app.database import SessionLocal
     
+    # Accept WebSocket connection first (required before sending messages)
+    await websocket.accept()
+    
     # Extract token from query parameters
     token = websocket.query_params.get("token")
     if not token:
@@ -43,6 +46,12 @@ async def websocket_endpoint(websocket, room_id: int):
     db = SessionLocal()
     try:
         await chat.websocket_chat_endpoint(websocket, room_id, token, db)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011, reason=f"Server error: {str(e)}")
+        except:
+            pass
     finally:
         db.close()
 
