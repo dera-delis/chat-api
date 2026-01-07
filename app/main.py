@@ -14,12 +14,23 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Note: When allow_credentials=True, you cannot use allow_origins=["*"]
+# Must specify exact origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=[
+        "http://localhost:5173",  # Vite default port
+        "http://localhost:3000",  # React default port
+        "http://localhost:5174",  # Vite alternate port
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "https://p01--chat-api--jlcf9gxkjgjx.code.run",  # Production API (for same-origin requests)
+        # Add your production frontend URL here when deployed
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include routers
