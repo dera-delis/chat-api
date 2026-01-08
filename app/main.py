@@ -13,7 +13,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - must be added FIRST (before other middleware)
 # Note: When allow_credentials=True, you cannot use allow_origins=["*"]
 # Must specify exact origins
 app.add_middleware(
