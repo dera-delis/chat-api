@@ -283,28 +283,6 @@ The `docker-compose.yml` includes:
 - **Redis** (port 6379)
 - **FastAPI Application** (port 8000)
 
-## 🚀 Deployment
-This API is designed for container-based platforms such as:
-- Northflank
-- Fly.io
-- Railway
-- DigitalOcean
-- AWS EC2
-
-WebSockets and Redis are required in production.
-
-## 🔒 Security Features
-- JWT authentication
-- Password hashing with bcrypt
-- WebSocket authentication
-- Room access control
-- Private rooms with approval flow
-
-> Rate limiting and abuse prevention are planned for production environments.
-
-## 📈 Scalability
-Redis Pub/Sub allows multiple FastAPI instances to broadcast messages across nodes.
-
 ## 🔄 Database Migrations
 ```bash
 alembic revision --autogenerate -m "Description of changes"
@@ -330,18 +308,6 @@ This project demonstrates:
 - `SECRET_KEY`
 - `ALGORITHM`
 - `ACCESS_TOKEN_EXPIRE_MINUTES`
-
-## 🔗 Frontend Integration
-This API is designed to be consumed by a React + WebSocket frontend application.
-See: Project 6 – Real-Time Chat App
-
-## 🎯 Why This Project?
-This project demonstrates:
-- Real-time system design with WebSockets
-- Secure, token-authenticated socket connections
-- Horizontal scalability using Redis Pub/Sub
-- Complex domain logic (invites, approvals, presence)
-- Production-ready backend architecture
 
 ## 📄 License
 MIT
