@@ -263,16 +263,10 @@ pytest
 ```
 
 ## 🚀 Deployment
-This API is designed for container-based platforms such as:
-- Northflank.com
-- Fly.io
-- Railway
-- DigitalOcean
-- AWS EC2
+This API is designed for container-based platforms.  
+Primary target: **Northflank**, with Redis hosted on **Upstash**.
 
-WebSockets and Redis are required for production.
-
-> Rate limiting and abuse prevention are planned for production environments.
+See `DEPLOYMENT.md` for the full guide and production notes.
 
 ## 📈 Scalability
 Redis Pub/Sub allows multiple FastAPI instances to broadcast messages across nodes.
