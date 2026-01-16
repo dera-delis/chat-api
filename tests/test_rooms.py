@@ -106,10 +106,10 @@ def test_join_room(client, auth_token, test_user):
     )
     login_response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "user2",
-            "password": "password123"
-        }
+            "password": "password123",
+        },
     )
     token2 = login_response.json()["access_token"]
     
@@ -145,10 +145,10 @@ def test_join_private_room(client, auth_token):
     )
     login_response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "user3",
-            "password": "password123"
-        }
+            "password": "password123",
+        },
     )
     token3 = login_response.json()["access_token"]
     

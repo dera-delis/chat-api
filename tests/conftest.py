@@ -60,10 +60,10 @@ def auth_token(client, test_user):
     """Get authentication token for test user"""
     response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "testuser",
-            "password": "testpassword123"
-        }
+            "password": "testpassword123",
+        },
     )
     assert response.status_code == 200
     return response.json()["access_token"]

@@ -1,11 +1,7 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 from app.routers import auth, rooms, messages, presence
 from app.websocket import chat
-from app.config import settings
-import traceback
 
 app = FastAPI(
     title="Real-Time Chat API",
@@ -18,109 +14,21 @@ app = FastAPI(
 # Must specify exact origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite default port
-        "http://localhost:3000",  # React default port
-        "http://localhost:5174",  # Vite alternate port
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "https://p01--chat-api--jlcf9gxkjgjx.code.run",  # Production API (for same-origin requests)
-        # Add your production frontend URL here when deployed
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Include routers
+# Include routers - register more specific routes first to avoid conflicts
 app.include_router(auth.router)
-app.include_router(rooms.router)
-app.include_router(messages.router)
+app.include_router(messages.router)  # /rooms/{room_id}/messages - more specific, register first
+app.include_router(rooms.router)      # /rooms/{room_id} - less specific, register after
 app.include_router(presence.router)
 
-# WebSocket endpoint
 @app.websocket("/ws/chat/{room_id}")
-async def websocket_endpoint(websocket, room_id: int):
-    """WebSocket endpoint for real-time chat"""
-    from app.database import SessionLocal
-    import traceback
-    
-    print(f"[WebSocket] Connection attempt to room {room_id}")
-    
-    # Accept WebSocket connection first (required before sending messages)
-    try:
-        await websocket.accept()
-        print(f"[WebSocket] Connection accepted for room {room_id}")
-    except Exception as e:
-        print(f"[WebSocket] Failed to accept connection: {e}")
-        print(f"[WebSocket] Traceback: {traceback.format_exc()}")
-        return
-    
-    # Extract token from query parameters
-    token = websocket.query_params.get("token")
-    if not token:
-        print(f"[WebSocket] Missing token for room {room_id}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Missing authentication token"
-            })
-            await websocket.close(code=1008, reason="Missing token")
-        except:
-            pass
-        return
-    
-    print(f"[WebSocket] Token received for room {room_id}")
-    
-    db = SessionLocal()
-    try:
-        await chat.websocket_chat_endpoint(websocket, room_id, token, db)
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        print(f"[WebSocket] Error in chat endpoint: {e}")
-        print(f"[WebSocket] Traceback: {error_traceback}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Server error",
-                "detail": str(e)
-            })
-            await websocket.close(code=1011, reason=f"Server error: {str(e)}")
-        except Exception as close_error:
-            print(f"[WebSocket] Failed to send error message: {close_error}")
-    finally:
-        db.close()
-        print(f"[WebSocket] Connection closed for room {room_id}")
-
-
-@app.options("/{full_path:path}")
-async def options_handler(request: Request, full_path: str):
-    """Handle OPTIONS requests for CORS preflight"""
-    origin = request.headers.get("origin")
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ]
-    
-    # Check if origin is allowed
-    if origin in allowed_origins:
-        return JSONResponse(
-            content={},
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "3600",
-            }
-        )
-    else:
-        return JSONResponse(content={}, status_code=403)
+async def websocket_endpoint(websocket: WebSocket, room_id: int):
+    await chat.websocket_chat_endpoint(websocket, room_id)
 
 
 @app.get("/")
@@ -139,32 +47,5 @@ async def health():
     return {"status": "healthy"}
 
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors with detailed messages"""
-    errors = exc.errors()
-    print(f"Validation error: {errors}")
-    return JSONResponse(
-        status_code=422,
-        content={
-            "detail": errors,
-            "message": "Validation error. Please check your request format."
-        }
-    )
 
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler to catch unhandled errors"""
-    # Log the full traceback for debugging
-    error_traceback = traceback.format_exc()
-    print(f"Unhandled exception: {error_traceback}")
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": f"Internal server error: {str(exc)}",
-            "type": type(exc).__name__
-        }
-    )
 

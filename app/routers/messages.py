@@ -20,27 +20,23 @@ def get_messages(
     db: Session = Depends(get_db)
 ):
     """Get paginated chat history for a room"""
-    # Check if room exists
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found"
+            detail="Room not found",
         )
-    
-    # Check if user is a member
+
     membership = db.query(RoomMember).filter(
         RoomMember.room_id == room_id,
-        RoomMember.user_id == current_user.id
+        RoomMember.user_id == current_user.id,
     ).first()
-    
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a member of this room"
+            detail="Not a member of this room",
         )
-    
-    # Get messages with user information
+
     messages = db.query(Message, User.username).join(
         User, Message.user_id == User.id
     ).filter(
@@ -48,20 +44,16 @@ def get_messages(
     ).order_by(
         Message.timestamp.desc()
     ).offset(skip).limit(limit).all()
-    
-    # Format response
+
     result = []
     for message, username in messages:
-        msg_dict = {
-            "id": message.id,
-            "room_id": message.room_id,
-            "user_id": message.user_id,
-            "content": message.content,
-            "timestamp": message.timestamp,
-            "username": username
-        }
-        result.append(MessageResponse(**msg_dict))
-    
-    # Reverse to show oldest first
-    return list(reversed(result))
+        result.append(MessageResponse(
+            id=message.id,
+            room_id=message.room_id,
+            user_id=message.user_id,
+            content=message.content,
+            timestamp=message.timestamp,
+            username=username,
+        ))
 
+    return list(reversed(result))

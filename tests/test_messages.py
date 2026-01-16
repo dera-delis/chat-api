@@ -73,10 +73,10 @@ def test_get_messages_not_member(client, auth_token):
     )
     login_response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "user4",
-            "password": "password123"
-        }
+            "password": "password123",
+        },
     )
     token4 = login_response.json()["access_token"]
     

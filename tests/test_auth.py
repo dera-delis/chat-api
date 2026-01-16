@@ -51,10 +51,10 @@ def test_login_success(client, test_user):
     """Test successful login"""
     response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "testuser",
-            "password": "testpassword123"
-        }
+            "password": "testpassword123",
+        },
     )
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
@@ -66,10 +66,10 @@ def test_login_invalid_username(client):
     """Test login with invalid username"""
     response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "nonexistent",
-            "password": "password123"
-        }
+            "password": "password123",
+        },
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -78,10 +78,10 @@ def test_login_invalid_password(client, test_user):
     """Test login with invalid password"""
     response = client.post(
         "/auth/login",
-        data={
+        json={
             "username": "testuser",
-            "password": "wrongpassword"
-        }
+            "password": "wrongpassword",
+        },
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 

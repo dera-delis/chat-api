@@ -17,27 +17,21 @@ def get_presence(
     db: Session = Depends(get_db)
 ):
     """Get online users in a room"""
-    # Check if room exists
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found"
+            detail="Room not found",
         )
-    
-    # Check if user is a member
+
     membership = db.query(RoomMember).filter(
         RoomMember.room_id == room_id,
-        RoomMember.user_id == current_user.id
+        RoomMember.user_id == current_user.id,
     ).first()
-    
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a member of this room"
+            detail="Not a member of this room",
         )
-    
-    # Get online users
-    online_users = presence_service.get_online_users(room_id)
-    return online_users
 
+    return presence_service.get_online_users(room_id)

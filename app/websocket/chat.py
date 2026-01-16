@@ -1,8 +1,9 @@
-import json
 import asyncio
+import json
 from typing import Dict, Set
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException, status
 from sqlalchemy.orm import Session
+from app.database import SessionLocal
 from app.models.user import User
 from app.models.room import Room, RoomMember
 from app.models.message import Message
@@ -12,257 +13,213 @@ from app.services.presence import presence_service
 
 
 class ConnectionManager:
-    """Manages WebSocket connections for chat rooms"""
-    
     def __init__(self):
-        # room_id -> Set[WebSocket]
         self.active_connections: Dict[int, Set[WebSocket]] = {}
-        # WebSocket -> (user_id, username, room_id)
-        self.connection_info: Dict[WebSocket, tuple] = {}
-    
+        self.connection_info: Dict[WebSocket, tuple[int, str, int]] = {}
+
     async def connect(self, websocket: WebSocket, room_id: int, user_id: int, username: str):
-        """Connect a user to a room (WebSocket should already be accepted)"""
-        if room_id not in self.active_connections:
-            self.active_connections[room_id] = set()
-        
-        self.active_connections[room_id].add(websocket)
+        self.active_connections.setdefault(room_id, set()).add(websocket)
         self.connection_info[websocket] = (user_id, username, room_id)
-        
-        # Set user online
-        presence_service.set_user_online(room_id, user_id, username)
-        
-        # Notify others in room
+        await asyncio.to_thread(presence_service.set_user_online, room_id, user_id, username)
         await self.broadcast_system_message(
             room_id,
             f"{username} joined the room",
-            exclude_websocket=websocket
+            exclude_websocket=websocket,
         )
-    
+
     def disconnect(self, websocket: WebSocket):
-        """Disconnect a user from a room"""
         if websocket not in self.connection_info:
             return
-        
-        user_id, username, room_id = self.connection_info[websocket]
-        
-        if room_id in self.active_connections:
-            self.active_connections[room_id].discard(websocket)
-            if not self.active_connections[room_id]:
-                del self.active_connections[room_id]
-        
-        del self.connection_info[websocket]
-        
-        # Set user offline
-        presence_service.set_user_offline(room_id, user_id)
-    
-    async def send_personal_message(self, message: dict, websocket: WebSocket):
-        """Send message to a specific WebSocket connection"""
-        await websocket.send_json(message)
-    
-    async def broadcast_to_room(self, room_id: int, message: dict, exclude_websocket: WebSocket = None):
-        """Broadcast message to all connections in a room"""
-        if room_id not in self.active_connections:
-            return
-        
+        user_id, username, room_id = self.connection_info.pop(websocket)
+        self.active_connections.get(room_id, set()).discard(websocket)
+        if not self.active_connections.get(room_id):
+            self.active_connections.pop(room_id, None)
+        # Run in thread to avoid blocking the event loop
+        asyncio.create_task(asyncio.to_thread(presence_service.set_user_offline, room_id, user_id))
+
+    async def broadcast_to_room(self, room_id: int, message: dict, exclude_websocket: WebSocket | None = None):
+        connections = self.active_connections.get(room_id, set())
         disconnected = set()
-        for connection in self.active_connections[room_id]:
+        for connection in connections:
             if connection == exclude_websocket:
                 continue
             try:
                 await connection.send_json(message)
             except Exception:
                 disconnected.add(connection)
-        
-        # Clean up disconnected connections
         for conn in disconnected:
             self.disconnect(conn)
-    
-    async def broadcast_system_message(self, room_id: int, content: str, exclude_websocket: WebSocket = None):
-        """Broadcast a system message to the room"""
-        message = {
-            "type": "system",
-            "content": content,
-            "timestamp": None
-        }
-        await self.broadcast_to_room(room_id, message, exclude_websocket)
+
+    async def broadcast_system_message(self, room_id: int, content: str, exclude_websocket: WebSocket | None = None):
+        await self.broadcast_to_room(
+            room_id,
+            {"type": "system", "content": content, "timestamp": None},
+            exclude_websocket=exclude_websocket,
+        )
 
 
-# Global connection manager
 manager = ConnectionManager()
 
 
-async def get_current_user_websocket(
-    token: str,
-    db: Session
-) -> User:
-    """Get current user from WebSocket token"""
+def get_user_from_token(token: str, db: Session) -> User:
     username = verify_token(token)
-    if username is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
-        )
-    
+    if not username:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
 
-async def websocket_chat_endpoint(
-    websocket: WebSocket,
-    room_id: int,
-    token: str,
-    db: Session
-):
-    """WebSocket endpoint for real-time chat"""
-    print(f"[WebSocket Chat] Processing connection for room {room_id}")
-    
-    # Authenticate user
+async def websocket_chat_endpoint(websocket: WebSocket, room_id: int):
+    await websocket.accept()
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    db = SessionLocal()
     try:
-        print(f"[WebSocket Chat] Authenticating user with token...")
-        user = await get_current_user_websocket(token, db)
-        print(f"[WebSocket Chat] User authenticated: {user.username} (ID: {user.id})")
-    except HTTPException as e:
-        print(f"[WebSocket Chat] Authentication failed: {e.detail}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Authentication failed",
-                "detail": str(e.detail)
-            })
+        user = get_user_from_token(token, db)
+        room = db.query(Room).filter(Room.id == room_id).first()
+        if not room:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        except Exception as send_error:
-            print(f"[WebSocket Chat] Failed to send auth error: {send_error}")
-        return
-    
-    # Check if room exists
-    print(f"[WebSocket Chat] Checking if room {room_id} exists...")
-    room = db.query(Room).filter(Room.id == room_id).first()
-    if not room:
-        print(f"[WebSocket Chat] Room {room_id} not found")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Room not found",
-                "room_id": room_id
-            })
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Room not found")
-        except Exception as send_error:
-            print(f"[WebSocket Chat] Failed to send room error: {send_error}")
-        return
-    
-    print(f"[WebSocket Chat] Room found: {room.name}")
-    
-    # Check if user is a member
-    print(f"[WebSocket Chat] Checking membership for user {user.id} in room {room_id}...")
-    membership = db.query(RoomMember).filter(
-        RoomMember.room_id == room_id,
-        RoomMember.user_id == user.id
-    ).first()
-    
-    if not membership:
-        print(f"[WebSocket Chat] User {user.id} is not a member of room {room_id}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Not a member of this room",
-                "room_id": room_id,
-                "hint": "Join the room first using POST /rooms/{room_id}/join"
-            })
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Not a member of this room")
-        except Exception as send_error:
-            print(f"[WebSocket Chat] Failed to send membership error: {send_error}")
-        return
-    
-    print(f"[WebSocket Chat] User {user.id} is a member. Connecting to room...")
-    
-    # Connect to room
+            return
+        membership = db.query(RoomMember).filter(
+            RoomMember.room_id == room_id,
+            RoomMember.user_id == user.id,
+        ).first()
+        if not membership:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    finally:
+        db.close()
+
     await manager.connect(websocket, room_id, user.id, user.username)
-    
-    # Subscribe to Redis pub/sub for this room
-    pubsub = redis_service.create_pubsub()
-    redis_service.subscribe_to_room(pubsub, room_id)
-    
+
+    pubsub = None
+    redis_task = None
     try:
-        # Start Redis message listener task
+        pubsub = await asyncio.to_thread(redis_service.create_pubsub)
+        await asyncio.to_thread(redis_service.subscribe_to_room, pubsub, room_id)
+
+        await websocket.send_json({
+            "type": "connected",
+            "message": "Successfully connected to room",
+            "room_id": room_id,
+            "room_name": room.name,
+            "username": user.username,
+        })
+
         async def listen_redis():
             while True:
-                try:
-                    message = redis_service.get_message(pubsub, timeout=0.1)
-                    if message:
-                        # Broadcast message received from Redis to all WebSocket connections
-                        await manager.broadcast_to_room(room_id, message, exclude_websocket=websocket)
-                except Exception as e:
-                    print(f"Redis listener error: {e}")
-                    break
-        
-        redis_task = asyncio.create_task(listen_redis())
-        
-        # Main message loop
-        while True:
-            try:
-                # Receive message from WebSocket
-                data = await websocket.receive_json()
-                
-                if data.get("type") == "message" and "content" in data:
-                    content = data["content"].strip()
-                    if not content:
-                        continue
-                    
-                    # Save message to database
-                    db_message = Message(
-                        room_id=room_id,
-                        user_id=user.id,
-                        content=content
-                    )
-                    db.add(db_message)
-                    db.commit()
-                    db.refresh(db_message)
-                    
-                    # Prepare message for broadcasting
-                    message_data = {
-                        "type": "message",
-                        "id": db_message.id,
-                        "room_id": room_id,
-                        "user_id": user.id,
-                        "username": user.username,
-                        "content": content,
-                        "timestamp": db_message.timestamp.isoformat()
-                    }
-                    
-                    # Publish to Redis for horizontal scaling
-                    redis_service.publish_message(room_id, message_data)
-                    
-                    # Broadcast to all connections in this room (including sender)
-                    await manager.broadcast_to_room(room_id, message_data)
-                
-            except WebSocketDisconnect:
-                break
-            except Exception as e:
-                print(f"WebSocket error: {e}")
-                break
-        
-        # Cancel Redis listener
-        redis_task.cancel()
-        try:
-            await redis_task
-        except asyncio.CancelledError:
-            pass
-    
-    finally:
-        # Cleanup
-        redis_service.unsubscribe_from_room(pubsub, room_id)
-        redis_service.close_pubsub(pubsub)
-        manager.disconnect(websocket)
-        
-        # Notify others that user left
-        await manager.broadcast_system_message(
-            room_id,
-            f"{user.username} left the room"
-        )
+                message = await asyncio.to_thread(redis_service.get_message, pubsub, 0.1)
+                if message:
+                    await manager.broadcast_to_room(room_id, message, exclude_websocket=websocket)
 
+        redis_task = asyncio.create_task(listen_redis())
+
+        def save_message(room_id: int, user_id: int, content: str) -> dict:
+            message_db = SessionLocal()
+            try:
+                db_message = Message(room_id=room_id, user_id=user_id, content=content)
+                message_db.add(db_message)
+                message_db.commit()
+                message_db.refresh(db_message)
+                return {"id": db_message.id, "timestamp": db_message.timestamp.isoformat()}
+            finally:
+                message_db.close()
+
+        def edit_message(room_id: int, user_id: int, message_id: int, content: str) -> dict | None:
+            message_db = SessionLocal()
+            try:
+                db_message = message_db.query(Message).filter(
+                    Message.id == message_id,
+                    Message.room_id == room_id,
+                    Message.user_id == user_id,
+                ).first()
+                if not db_message:
+                    return None
+                db_message.content = content
+                message_db.commit()
+                message_db.refresh(db_message)
+                return {"id": db_message.id, "timestamp": db_message.timestamp.isoformat()}
+            finally:
+                message_db.close()
+
+        while True:
+            data = await websocket.receive_json()
+            message_type = data.get("type")
+
+            if message_type == "message" and "content" in data:
+                content = data["content"].strip()
+                if not content:
+                    continue
+
+                message_data = {
+                    "type": "message",
+                    "id": None,
+                    "room_id": room_id,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "content": content,
+                    "timestamp": None,
+                    "edited": False,
+                }
+                saved = await asyncio.to_thread(save_message, room_id, user.id, content)
+                message_data["id"] = saved["id"]
+                message_data["timestamp"] = saved["timestamp"]
+
+                await asyncio.to_thread(redis_service.publish_message, room_id, message_data)
+                await manager.broadcast_to_room(room_id, message_data)
+                continue
+
+            if message_type == "typing" and "is_typing" in data:
+                typing_data = {
+                    "type": "typing",
+                    "room_id": room_id,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "is_typing": bool(data.get("is_typing")),
+                }
+                await manager.broadcast_to_room(room_id, typing_data, exclude_websocket=websocket)
+                continue
+
+            if message_type == "edit" and "content" in data and "message_id" in data:
+                content = data["content"].strip()
+                if not content:
+                    continue
+                try:
+                    message_id = int(data["message_id"])
+                except (TypeError, ValueError):
+                    continue
+
+                updated = await asyncio.to_thread(edit_message, room_id, user.id, message_id, content)
+                if not updated:
+                    continue
+
+                edit_data = {
+                    "type": "edit",
+                    "id": updated["id"],
+                    "room_id": room_id,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "content": content,
+                    "timestamp": updated["timestamp"],
+                    "edited": True,
+                }
+
+                await asyncio.to_thread(redis_service.publish_message, room_id, edit_data)
+                await manager.broadcast_to_room(room_id, edit_data)
+                continue
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if redis_task:
+            redis_task.cancel()
+        if pubsub:
+            await asyncio.to_thread(redis_service.unsubscribe_from_room, pubsub, room_id)
+            await asyncio.to_thread(redis_service.close_pubsub, pubsub)
+        manager.disconnect(websocket)
+        await manager.broadcast_system_message(room_id, f"{user.username} left the room")

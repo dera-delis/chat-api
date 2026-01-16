@@ -30,3 +30,26 @@ class RoomMemberResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class RoomInviteRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+
+class RoomInviteResponse(BaseModel):
+    token: str
+    room_id: int
+    expires_at: Optional[datetime] = None
+
+
+class RoomJoinRequestResponse(BaseModel):
+    id: int
+    room_id: int
+    user_id: int
+    status: str
+    created_at: datetime
+    username: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
