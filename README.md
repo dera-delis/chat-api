@@ -9,6 +9,8 @@
 
 A production-ready real-time chat API built with FastAPI, WebSockets, Redis, and PostgreSQL. This backend supports authenticated users, public and private chat rooms, invite links with approval, real-time messaging, presence tracking, typing indicators, and persistent chat history.
 
+**Live Deployment**: https://p01--chat-api--jlcf9gxkjgjx.code.run/
+
 ## 🏗️ Architecture
 
 ### Tech Stack
