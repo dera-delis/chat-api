@@ -308,3 +308,7 @@ This project demonstrates:
 ## 📄 License
 MIT
 
+## 📬 Contact
+- LinkedIn: https://www.linkedin.com/in/dera-delis
+- GitHub: https://github.com/dera-delis
+
